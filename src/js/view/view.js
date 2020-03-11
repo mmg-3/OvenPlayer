@@ -174,6 +174,18 @@ const View = function($container){
                 //togglePlayPause();
             }
         },
+        "dblclick .ovenplayer" : function(event, $current, template){
+
+            if (api) {
+
+                if (api.getConfig().expandFullScreenUI && api.toggleFullScreen) {
+
+                    if(!(LA$(event.target).closest(".op-controls-container") || LA$(event.target).closest(".op-setting-panel") )){
+                        api.toggleFullScreen();
+                    }
+                }
+            }
+        },
         //For iOS safari
         "touchstart .ovenplayer" : function(event, $current, template){
             if (playerState === STATE_PLAYING || playerState === STATE_IDLE  || playerState === STATE_LOADING || (playerState === STATE_AD_PLAYING && screenSize === "xsmall")) {
@@ -273,12 +285,6 @@ const View = function($container){
 
     that.setApi = (playerInstance) => {
         api = playerInstance;
-        let showControlBar = api.getConfig() && api.getConfig().controls;
-
-        helper = Helpers($playerRoot.find(".op-ui"), playerInstance);
-        if(showControlBar){
-            controls = Controls($playerRoot.find(".op-ui"), playerInstance);
-        }
 
         api.on(READY, function(data) {
             if(!controls && showControlBar){
@@ -301,6 +307,12 @@ const View = function($container){
             viewTemplate.destroy();
         });
 
+        api.on(PLAYER_PLAY, function (data) {
+            if(!controls && showControlBar){
+                controls = Controls($playerRoot.find(".op-ui"), playerInstance);
+            }
+        });
+
         api.on(PLAYER_STATE, function(data){
             if(data && data.newstate){
                 playerState = data.newstate;
@@ -311,6 +323,20 @@ const View = function($container){
                 }
             }
         });
+
+        let showControlBar = api.getConfig() && api.getConfig().controls;
+
+        helper = Helpers($playerRoot.find(".op-ui"), playerInstance);
+        if(showControlBar){
+            controls = Controls($playerRoot.find(".op-ui"), playerInstance);
+        } else {
+
+            // to use full screen api
+            if (api.getConfig() && api.getConfig().expandFullScreenUI) {
+                controls = Controls($playerRoot.find(".op-ui"), playerInstance);
+                controls.destroy();
+            }
+        }
     };
 
 

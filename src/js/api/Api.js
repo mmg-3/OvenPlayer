@@ -36,9 +36,9 @@ const Api = function(container){
     let captionManager = "";
 
     let webrtcRetry = false;
-    const WEBRTC_RETRY_COUNT = 240;
+    const WEBRTC_RETRY_COUNT = 3;
     let webrtcRetryCount = WEBRTC_RETRY_COUNT;
-    let webrtcRetryInterval = 500;
+    let webrtcRetryInterval = 1000;
     let webrtcRetryTimer = null;
 
 
@@ -505,13 +505,14 @@ const Api = function(container){
             mediaManager.destroy();
             mediaManager = null;
         }
+
+        that.trigger(DESTROY);
+        that.off();
+
         providerController = null;
         playlistManager = null;
         playerConfig = null;
         lazyQueue = null;
-
-        that.trigger(DESTROY);
-        that.off();
 
         OvenPlayerConsole.log("API : remove() - lazyQueue, currentProvider, providerController, playlistManager, playerConfig, api event destroed. ");
         OvenPlayerSDK.removePlayer(that.getContainerId());

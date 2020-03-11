@@ -16,13 +16,14 @@ player = OvenPlayer.create("player", {
     currentProtocolOnly : true, 
     title : "Hi. This is ovenplayer.",
     image : "https://path.to/your_video_thumbnail.jpeg",    
-    adClient : "googleima",    
+    adClient : "googleima",
+    hidePlaylistIcon : true,
+    loadingRetryCount: 3,
     playlist : [
         {
                 title : "01. I drive slow.",
                 image : "https://path.to/your_video_thumbnail.jpeg",
                 duration : 7343,
-                hidePlaylistIcon : true,
                 sources: [{
                         type : "mpd", 
                         file :  "https://path.to/your_video.mpd", 
@@ -62,6 +63,13 @@ type|default
 boolean|false
 
 When the source is loaded, it plays automatically.
+
+#### loadingRetryCount
+type|default
+------|------
+number|0
+
+If set, HLS and DASH retries reload when initial load fail.
  
 #### playbackRate 
 type|default
@@ -243,6 +251,14 @@ type|default
 boolean|false
 
 Sets whether to show or hide the playlist button when playlist initialized.
+
+#### expandFullScreenUI 
+type|default
+------|------
+boolean|false
+
+Enables user to enter or exit full screen with double click.
+
 
 #### tracks 
 type|default

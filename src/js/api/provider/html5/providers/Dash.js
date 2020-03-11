@@ -17,6 +17,7 @@ import {
     PROVIDER_DASH
 } from "api/constants";
 import _ from "utils/underscore";
+import {STATE_LOADING} from "../../../constants";
 
 /**
  * @brief   dashjs provider extended core.
@@ -36,7 +37,7 @@ const Dash = function (element, playerConfig, adTagUrl) {
     let seekPosition_sec = 0;
     let isDashMetaLoaded = false;
     var prevLLLiveDuration = null;
-
+    let loadRetryer = null;
     let sourceOfFile = "";
 
     try {
@@ -77,7 +78,7 @@ const Dash = function (element, playerConfig, adTagUrl) {
             return result;
         };
 
-        const liveDelayReducingCallback  = function () {
+        const liveDelayReducingCallback = function () {
 
             if (dash.duration() !== prevLLLiveDuration) {
                 prevLLLiveDuration = dash.duration();
@@ -96,18 +97,6 @@ const Dash = function (element, playerConfig, adTagUrl) {
 
         dash = dashjs.MediaPlayer().create();
         dash.initialize(element, null, playerConfig.getConfig().autoStart);
-
-        if (dashjs.Version >= '3.0.0') {
-
-            dash.updateSettings({
-                'debug': {
-                    'logLevel': dashjs.Debug.LOG_LEVEL_NONE
-                }
-            });
-        } else {
-
-            dash.getDebug().setLogToBrowserConsole(false);
-        }
 
         window.dash = dash;
 
@@ -133,6 +122,7 @@ const Dash = function (element, playerConfig, adTagUrl) {
         that = Provider(spec, playerConfig, function (source, lastPlayPosition) {
 
             OvenPlayerConsole.log("DASH : Attach File : ", source, "lastPlayPosition : " + lastPlayPosition);
+
             coveredSetAutoSwitchQualityFor(true);
             sourceOfFile = source.file;
 
@@ -190,7 +180,26 @@ const Dash = function (element, playerConfig, adTagUrl) {
 
             }
 
+            if (dashjs.Version >= '3.0.0') {
+
+                dash.updateSettings({
+                    debug: {
+                        logLevel: dashjs.Debug.LOG_LEVEL_NONE
+                    },
+                    streaming: {
+                        retryAttempts: {
+                            MPD: 0
+                        }
+                    }
+                });
+
+            } else {
+
+                dash.getDebug().setLogToBrowserConsole(false);
+            }
+
             dash.attachSource(sourceOfFile);
+
             seekPosition_sec = lastPlayPosition;
 
         });
@@ -199,13 +208,39 @@ const Dash = function (element, playerConfig, adTagUrl) {
         superDestroy_func = that.super('destroy');
         OvenPlayerConsole.log("DASH PROVIDER LOADED.");
 
+        let loadingRetryCount = playerConfig.getConfig().loadingRetryCount;
+
         dash.on(dashjs.MediaPlayer.events.ERROR, function (error) {
 
-            if (error && (error.error === DASHERROR.DOWNLOAD || error.error === DASHERROR.MANIFESTERROR || error.error.code === 25)) {
+            // Handle mpd load error.
+            if (error &&
+                (
+                    error.error.code === dashjs.MediaPlayer.errors.DOWNLOAD_ERROR_ID_MANIFEST_CODE ||
+                    error.error.code === dashjs.MediaPlayer.errors.MANIFEST_LOADER_LOADING_FAILURE_ERROR_CODE
+                )) {
 
-                let tempError = ERRORS.codes[PLAYER_UNKNWON_NEWWORK_ERROR];
-                tempError.error = error;
-                errorTrigger(tempError, that);
+                if (loadingRetryCount > 0) {
+
+                    that.setState(STATE_LOADING);
+
+                    if (loadRetryer) {
+                        clearTimeout(loadRetryer);
+                        loadRetryer = null;
+                    }
+
+                    loadingRetryCount = loadingRetryCount - 1;
+
+                    loadRetryer = setTimeout(function () {
+
+
+                        dash.attachSource(sourceOfFile);
+                    }, 1000);
+                } else {
+
+                    let tempError = ERRORS.codes[PLAYER_UNKNWON_NEWWORK_ERROR];
+                    tempError.error = error;
+                    errorTrigger(tempError, that);
+                }
             }
         });
 
@@ -230,6 +265,17 @@ const Dash = function (element, playerConfig, adTagUrl) {
         });
 
         dash.on(dashjs.MediaPlayer.events.PLAYBACK_METADATA_LOADED, function (event) {
+
+            if (dashjs.Version >= '3.0.0') {
+
+                dash.updateSettings({
+                    streaming: {
+                        retryAttempts: {
+                            MPD: 2
+                        }
+                    }
+                });
+            }
 
             OvenPlayerConsole.log("DASH : PLAYBACK_METADATA_LOADED  : ", dash.getQualityFor("video"), dash.getBitrateInfoListFor('video'), dash.getBitrateInfoListFor('video')[dash.getQualityFor("video")]);
 

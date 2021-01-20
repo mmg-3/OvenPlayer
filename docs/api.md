@@ -21,34 +21,44 @@ player = OvenPlayer.create("player", {
     loadingRetryCount: 3,
     playlist : [
         {
-                title : "01. I drive slow.",
-                image : "https://path.to/your_video_thumbnail.jpeg",
-                duration : 7343,
-                sources: [{
-                        type : "mpd", 
-                        file :  "https://path.to/your_video.mpd", 
-                        framerate : 30,
-                        label: "360P DASH"
-                    }],
-                tracks: [{
-                        kind : "captions", 
-                        file :  "https://path.to/your_caption.vtt", 
-                        label : "KO vtt"
-                    }],
-                adTagUrl : "https://pubads.g.doubleclick.net/..."    
+            title : "01. I drive slow.",
+            image : "https://path.to/your_video_thumbnail.jpeg",
+            duration : 7343,
+            sources: [{
+                    type : "mpd",
+                    file :  "https://path.to/your_video.mpd",
+                    framerate : 30,
+                    label: "360P DASH"
+                }],
+            tracks: [{
+                    kind : "captions",
+                    file :  "https://path.to/your_caption.vtt",
+                    label : "KO vtt"
+                }],
+            adTagUrl : "https://pubads.g.doubleclick.net/..."
         }
     ]
-... or simple 
- player = OvenPlayer.create("player", {
-      sources: [{
-                              type : "mpd", 
-                              file :  "https://path.to/your_video.mpd", 
-                              framerate : 30,
-                              label: "360P DASH"
-                          }],
-      adTagUrl : "https://pubads.g.doubleclick.net/..." 
+}
+
+... or simple
+
+player = OvenPlayer.create("player", {
+    sources: [{
+        type : "mpd",
+        file :  "https://path.to/your_video.mpd",
+        framerate : 30,
+        label: "360P DASH"
+    }]
 });
 ```
+#### aspectRatio
+
+Set the aspect ratio of OvenPlayer. You can set any aspect ratio like "21:9", "4:3", "1:1" and more.
+
+type|default
+------|------
+String|"16:9"
+
 
 #### loop 
 type|default
@@ -69,7 +79,7 @@ type|default
 ------|------
 number|0
 
-If set, HLS and DASH retries reload when initial load fail.
+If set, HLS and DASH retries reload when error occurs.
  
 #### playbackRate 
 type|default
@@ -114,12 +124,122 @@ String| ""
 Sets the contents title.
 
 
+#### waterMark
+type|required|default
+------|------|-----
+Object| No| none
+
+Sets the water mark image on the player. See the followings for detailed settings.
+
+```javascript
+// watermark example
+var player = OvenPlayer.create("player", {
+    waterMark: {
+        image: '/path/to/watermark/image.png',
+        position: 'top-left',
+        y: '20px',
+        x: '20px'
+        width: '40px',
+        height: '30px',
+        opacity: 0.7
+    },
+    sources: [...]
+});
+```
+
+##### waterMark.image
+
+type|required|default
+------|------|-----
+String| Yes | none
+
+Sets the path of water mark image.
+
+##### waterMark.position
+
+type|required|default
+------|------|-----
+String| No | top-right
+
+Sets the location where water mark placed. `top-right`, `top-left`, `bottom-right`, `bottom-left` are available.
+
+##### waterMark.y
+
+type|required|default
+------|------|-----
+String| No | 5%
+
+Sets the distance from the top or bottom specified by `waterMark.position`. All CSS value available (e.g. `10px`, `5%`, `1rem`...)
+
+##### waterMark.x
+
+type|required|default
+------|------|-----
+String| No | 2.8125%
+
+Sets the distance from the left or right specified by `waterMark.position`. All CSS value available (e.g. `10px`, `5%`, `1rem`...)
+
+##### waterMark.width
+
+type|required|default
+------|------|-----
+String| No | auto
+
+Sets the width of water mark image. The default value `auto` means set to the original width of the image. All CSS value available (e.g. `10px`, `5%`, `1rem`...)
+
+##### waterMark.height
+
+type|required|default
+------|------|-----
+String| No | auto
+
+Sets the height of water mark image. The default value `auto` means set to the original height of the image. All CSS value available (e.g. `10px`, `5%`, `1rem`...)
+
+##### waterMark.opacity
+
+type|required|default
+------|------|-----
+Number| No | 0.7
+
+Sets the opacity of water mark image. Set a value between 0 and 1.
+
+
 #### controls 
 type|default
 ------|------
 boolean|true
 
 Sets whether to show or hide the player control bar.
+
+
+#### showBigPlayButton
+type|default
+------|------
+boolean|true
+
+Sets whether to show or hide the big play button.
+
+
+#### disableSeekUI
+type|default
+------|------
+boolean|false
+
+Disables user to seek using progress bar or keyboard interaction.
+
+#### showSeekControl
+type|default
+------|------
+boolean|false
+
+Sets whether to show or hide the quick seek buttons.
+
+#### seekControlInterval
+type|default
+------|------
+Number|10
+
+Sets seek interval of quick seek button.
 
 #### sources 
 type|default
@@ -161,6 +281,40 @@ Enter the URLs of the diverse protocols to play.
         label: "360P RTMP"
     }
 ] 
+```
+
+#### sources.sectionStart
+type|default
+------|------
+Number| 0
+
+Cuts the playback before time of sectionStart.
+
+```javascript
+sources: [
+    {
+        type: 'hls',
+        file: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+        sectionStart: 300
+    }
+]
+```
+
+#### sources.sectionEnd
+type|default
+------|------
+Number| 0
+
+Cuts the playback after time of sectionEnd.
+
+```javascript
+sources: [
+    {
+        type: 'hls',
+        file: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+        sectionEnd: 300
+    }
+]
 ```
 
 #### playlist 
@@ -327,6 +481,15 @@ String| null
 
 Specifies Ice Transport Policy. "all", "public", "relay"
 (*optional when using WebRTC protocol.)
+
+
+#### hlsConfig
+type|default
+------|------
+Object| null
+
+Specifies hls.js config
+(*optional when using HLS protocol.)
 
 
 #### currentProtocolOnly 
@@ -963,6 +1126,10 @@ Returns currently OvenPlayer version.
 ||Type|Memo|
 |-|-|-|
 |`version`|String| String of player version 
+
+
+#### player.remove()
+Destroys the player instance. Stops playback and cleans up all resources.
 
 
 ## Events

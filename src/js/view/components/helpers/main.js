@@ -6,6 +6,7 @@ import BigButton from "view/components/helpers/bigButton";
 import MessageBox from "view/components/helpers/messageBox";
 import CaptionViewer from "view/components/helpers/captionViewer";
 import Thumbnail from "view/components/helpers/thumbnail";
+import WaterMark from "view/components/helpers/waterMark";
 import Spinner from "view/components/helpers/spinner";
 import {
     READY,
@@ -33,24 +34,42 @@ import {
 } from "api/constants";
 
 const Helpers = function($container, api){
-    let bigButton = "", messageBox = "",  captionViewer = "", spinner = "", thumbnail;
+    let firstRun = false;
+    let bigButton = "", messageBox = "",  captionViewer = "", spinner = "", thumbnail, waterMark;
     let mutedMessage = null;
     let hasThumbnail = api.getConfig().image || api.getConfig().title;
+    let hasWaterMark = api.getConfig().waterMark && api.getConfig().waterMark.image ||
+        api.getConfig().waterMark && api.getConfig().waterMark.text;
     let dont_show_message = false;
 
     const onRendered = function($current, template){
         let qualityLevelChanging = false, newQualityLevel = -1;
         function createBigButton(state){
 
-            if(bigButton){
-                bigButton.destroy();
+            if (!api.getConfig().showBigPlayButton) {
+                return;
             }
-            bigButton = BigButton($current, api, state);
-        }
-        function createMessage(message, description ,withTimer, iconClass, clickCallback, dontClose){
+
             if(messageBox){
                 messageBox.destroy();
             }
+
+            if(bigButton){
+                bigButton.destroy();
+            }
+
+            bigButton = BigButton($current, api, state);
+        }
+        function createMessage(message, description ,withTimer, iconClass, clickCallback, dontClose){
+
+            if(bigButton){
+                bigButton.destroy();
+            }
+
+            if(messageBox){
+                messageBox.destroy();
+            }
+
             messageBox = MessageBox($current, api, message, description, withTimer, iconClass, clickCallback, dontClose);
         }
         function createThumbnail(){
@@ -58,6 +77,14 @@ const Helpers = function($container, api){
                 thumbnail.destroy();
             }
             thumbnail = Thumbnail($current, api, api.getConfig());
+        }
+        function createWaterMark() {
+
+            if (waterMark) {
+                waterMark.destroy();
+            }
+
+            waterMark = WaterMark($current, api, api.getConfig());
         }
 
         spinner = Spinner($current, api);
@@ -72,7 +99,16 @@ const Helpers = function($container, api){
             if(hasThumbnail){
                 createThumbnail();  //shows when playlist changed.
             }
-            createBigButton(STATE_PAUSED);
+            if(hasWaterMark) {
+                createWaterMark();
+            }
+
+            if (!firstRun) {
+
+                createBigButton(STATE_PAUSED);
+                firstRun = true;
+            }
+
         }, template);
 
         //So far warning muted play is all!!
@@ -100,6 +136,12 @@ const Helpers = function($container, api){
         api.on(PLAYER_STATE, function(data){
             if(data && data.newstate){
 
+                if (data.newstate === STATE_IDLE) {
+                    if(messageBox){
+                        messageBox.destroy();
+                    }
+                }
+
                 if(data.newstate === STATE_PLAYING ||  data.newstate === STATE_AD_PLAYING){
 
                     dont_show_message = false;
@@ -117,11 +159,20 @@ const Helpers = function($container, api){
                     if(!qualityLevelChanging){
                         spinner.show(false);
                     }
-                }else{
+                } else if (data.newstate === STATE_COMPLETE) {
+
                     createBigButton(data.newstate);
+                } else{
+
                     if(data.newstate === STATE_STALLED || data.newstate === STATE_LOADING || data.newstate === STATE_AD_LOADING){
 
                         dont_show_message = false;
+                        if(messageBox){
+                            messageBox.destroy();
+                        }
+                        if (bigButton) {
+                            bigButton.destroy();
+                        }
                         spinner.show(true);
                     }else{
                         if(!qualityLevelChanging){
@@ -129,6 +180,7 @@ const Helpers = function($container, api){
                         }
                     }
                 }
+
             }
         }, template);
 
@@ -155,7 +207,7 @@ const Helpers = function($container, api){
          }, template);
         api.on(ERROR, function(error) {
 
-            if (error.code === 510 || error.code === 511) {
+            if (error.code === 510) {
                 dont_show_message = true;
             }
 
@@ -168,6 +220,7 @@ const Helpers = function($container, api){
             if(bigButton){
                 bigButton.destroy();
             }
+
             if (error && error.code && error.code >= 100 && error.code < 1000) {
                 message = error.message;
                 if(error.code === 100){

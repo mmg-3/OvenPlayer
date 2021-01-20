@@ -12,7 +12,7 @@ import {
     INIT_DASH_UNSUPPORT,
     INIT_DASH_NOTFOUND,
     ERRORS,
-    PLAYER_UNKNWON_NEWWORK_ERROR,
+    PLAYER_UNKNWON_NETWORK_ERROR,
     CONTENT_LEVEL_CHANGED,
     PROVIDER_DASH
 } from "api/constants";
@@ -39,6 +39,7 @@ const Dash = function (element, playerConfig, adTagUrl) {
     var prevLLLiveDuration = null;
     let loadRetryer = null;
     let sourceOfFile = "";
+    let runedAutoStart = false;
 
     try {
 
@@ -96,9 +97,9 @@ const Dash = function (element, playerConfig, adTagUrl) {
         };
 
         dash = dashjs.MediaPlayer().create();
-        dash.initialize(element, null, playerConfig.getConfig().autoStart);
+        dash.initialize(element, null, false);
 
-        window.dash = dash;
+        window.op_dash = dash;
 
         let spec = {
             name: PROVIDER_DASH,
@@ -237,7 +238,7 @@ const Dash = function (element, playerConfig, adTagUrl) {
                     }, 1000);
                 } else {
 
-                    let tempError = ERRORS.codes[PLAYER_UNKNWON_NEWWORK_ERROR];
+                    let tempError = ERRORS.codes[PLAYER_UNKNWON_NETWORK_ERROR];
                     tempError.error = error;
                     errorTrigger(tempError, that);
                 }
@@ -294,8 +295,21 @@ const Dash = function (element, playerConfig, adTagUrl) {
                 }
             }
 
+            if(seekPosition_sec){
+                dash.seek(seekPosition_sec);
+                if(!playerConfig.isAutoStart()){
+                    // that.play();
+                }
+            }
+
             if (dash.isDynamic()) {
                 spec.isLive = true;
+            }
+
+            if(playerConfig.isAutoStart() && !runedAutoStart){
+                OvenPlayerConsole.log("DASH : AUTOPLAY()!");
+                that.play();
+                runedAutoStart = true;
             }
 
         });

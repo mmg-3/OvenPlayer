@@ -158,20 +158,26 @@ const View = function($container){
             if(api){
                 api.trigger(PLAYER_CLICKED, event);
             }
+
             if(contextPanel){
                 event.preventDefault();
                 contextPanel.destroy();
                 contextPanel = null;
-                //return false;
+                return false;
             }
 
-            if(!(LA$(event.target).closest(".op-controls-container") || LA$(event.target).closest(".op-setting-panel") )){
+            if(!(LA$(event.target).closest(".op-controls-container") || LA$(event.target).closest(".op-setting-panel")  )){
+
                 if(panelManager.size() > 0){
                     event.preventDefault();
                     panelManager.clear();
-                    //return false;
+                    return false;
                 }
-                //togglePlayPause();
+
+                if (api.getDuration() !== Infinity) {
+                    togglePlayPause();
+                }
+
             }
         },
         "dblclick .ovenplayer" : function(event, $current, template){
@@ -227,25 +233,33 @@ const View = function($container){
                     event.preventDefault();
                     isShiftPressed = true;
                     break;
-                case 32 :   //sapce
+                case 32 :   //space
                     event.preventDefault();
                     togglePlayPause();
                     break;
                 case 37 : //arrow left
                     event.preventDefault();
-                    if(isShiftPressed && frameMode){
-                        api.seekFrame(-1);
-                    }else{
-                        seek(5, true);
+
+                    if (!api.getConfig().disableSeekUI) {
+                        if(isShiftPressed && frameMode){
+                            api.seekFrame(-1);
+                        }else{
+                            seek(5, true);
+                        }
                     }
                     break;
                 case 39 : //arrow right
                     event.preventDefault();
-                    if(isShiftPressed && frameMode){
-                        api.seekFrame(1);
-                    }else{
-                        seek(5, false);
+
+                    if (!api.getConfig().disableSeekUI) {
+
+                        if(isShiftPressed && frameMode){
+                            api.seekFrame(1);
+                        }else{
+                            seek(5, false);
+                        }
                     }
+
                     break;
                 case 38 : //arrow up
                     event.preventDefault();
@@ -287,6 +301,7 @@ const View = function($container){
         api = playerInstance;
 
         api.on(READY, function(data) {
+
             if(!controls && showControlBar){
                 controls = Controls($playerRoot.find(".op-ui"), playerInstance);
             }
@@ -296,8 +311,8 @@ const View = function($container){
             if(api){
                 let sources = api.getSources()||[];
                 if(controls && (sources.length <= 1)){
-                    controls.destroy();
-                    controls = null;
+                    // controls.destroy();
+                    // controls = null;
                 }
             }
 
@@ -335,6 +350,21 @@ const View = function($container){
             if (api.getConfig() && api.getConfig().expandFullScreenUI) {
                 controls = Controls($playerRoot.find(".op-ui"), playerInstance);
                 controls.destroy();
+            }
+        }
+
+        let aspectRatio = api.getConfig().aspectRatio;
+
+        if (aspectRatio) {
+
+            if (aspectRatio.split(':').length === 2) {
+
+                let width = aspectRatio.split(':')[0] * 1;
+                let height = aspectRatio.split(':')[1] * 1;
+
+                let ratio = height / width * 100;
+
+                $playerRoot.find('.op-ratio').css('padding-bottom', ratio + '%');
             }
         }
     };

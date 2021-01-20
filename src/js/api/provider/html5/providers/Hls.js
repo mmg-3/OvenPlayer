@@ -10,7 +10,14 @@ import {
     INIT_HLSJS_NOTFOUND
 } from "api/constants";
 import _ from "utils/underscore";
-import {PLAYER_UNKNWON_NEWWORK_ERROR} from "../../../constants";
+import {
+    PLAYER_UNKNWON_ERROR,
+    PLAYER_UNKNWON_NETWORK_ERROR,
+    PLAYER_UNKNWON_DECODE_ERROR,
+    PLAYER_BAD_REQUEST_ERROR,
+    PLAYER_AUTH_FAILED_ERROR,
+    PLAYER_NOT_ACCEPTABLE_ERROR
+} from "../../../constants";
 
 /**
  * @brief   hlsjs provider extended core.
@@ -23,20 +30,36 @@ const HlsProvider = function (element, playerConfig, adTagUrl) {
     let that = {};
     let hls = null;
     let superPlay_func = null;
+    let superStop_func = null;
     let superDestroy_func = null;
     let loadRetryer = null;
     let isManifestLoaded = false;
     let firstLoaded = false;
 
+
     try {
-        hls = new Hls({
+
+        let hlsConfig = {
             debug: false,
             maxBufferLength: 20,
             maxMaxBufferLength: 30,
-            fragLoadingMaxRetry: 0,
-            manifestLoadingMaxRetry: 0,
-            levelLoadingMaxRetry: 0
-        });
+            fragLoadingMaxRetry: 2,
+            manifestLoadingMaxRetry: 2,
+            levelLoadingMaxRetry: 2
+        };
+
+        let hlsConfigFromPlayerConfig = playerConfig.getConfig().hlsConfig;
+
+        if (hlsConfigFromPlayerConfig) {
+
+            for (let key in hlsConfigFromPlayerConfig) {
+                hlsConfig[key] = hlsConfigFromPlayerConfig[key];
+            }
+        }
+
+        hls = new Hls(hlsConfig);
+
+        window.op_hls = hls;
 
         hls.attachMedia(element);
 
@@ -81,39 +104,55 @@ const HlsProvider = function (element, playerConfig, adTagUrl) {
                     loadRetryer = null;
                 }
 
-                hls.config.fragLoadingMaxRetry = 2;
-                hls.config.manifestLoadingMaxRetry = 2;
-                hls.config.levelLoadingMaxRetry = 2;
-
                 if (data.details.live) {
                     spec.isLive = true;
                 } else {
-                    if (lastPlayPosition > 0) {
+
+                    if (lastPlayPosition && lastPlayPosition >= 0) {
                         that.seek(lastPlayPosition);
                     }
                 }
-                if (playerConfig.isAutoStart()) {
-                    that.play();
-                }
+                // if (playerConfig.isAutoStart()) {
+                //     that.play();
+                // }
             });
 
             hls.on(Hls.Events.ERROR, function (event, data) {
 
                 if (data && data.networkDetails && data.networkDetails.status === 202) {
 
-                    that.setState(STATE_LOADING);
-
                     if (loadRetryer) {
                         clearTimeout(loadRetryer);
                         loadRetryer = null;
                     }
 
+                    that.setState(STATE_LOADING);
+
                     loadRetryer = setTimeout(function () {
-                        hls.stopLoad();
-                        hls.loadSource(source.file);
+
+                        if (hls) {
+
+                            that.stop();
+                            hls.stopLoad();
+                            hls.startLoad();
+                            that.play();
+                        }
+
                     }, 1000);
 
                 } else {
+
+                    hls.once(Hls.Events.FRAG_LOADING, function () {
+                        that.setState(STATE_LOADING);
+                    });
+
+                    if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+
+                        if (!data.fatal) {
+                            // do nothing when non fatal media error. hlsjs will recover it automatically.
+                            return;
+                        }
+                    }
 
                     if (loadingRetryCount > 0) {
 
@@ -126,13 +165,60 @@ const HlsProvider = function (element, playerConfig, adTagUrl) {
 
                         loadingRetryCount = loadingRetryCount - 1;
 
-                        loadRetryer = setTimeout(function () {
+                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
 
-                            hls.stopLoad();
-                            hls.loadSource(source.file);
-                        }, 1000);
+                            loadRetryer = setTimeout(function () {
+
+                                that.stop();
+
+                                if (hls) {
+
+                                    hls.stopLoad();
+                                    hls.startLoad();
+                                }
+
+                                that.play();
+                            }, 1000);
+                        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+
+                            loadRetryer = setTimeout(function () {
+
+                                if (hls) {
+
+                                    hls.recoverMediaError();
+                                }
+
+                                that.play();
+                            }, 1000);
+                        } else {
+
+                            loadRetryer = setTimeout(function () {
+
+                                that.stop();
+
+                                if (hls) {
+
+                                    hls.stopLoad();
+                                    hls.startLoad();
+                                }
+
+                                that.play();
+                            }, 1000);
+                        }
+
                     } else {
-                        let tempError = ERRORS.codes[PLAYER_UNKNWON_NEWWORK_ERROR];
+
+                        let errorType = PLAYER_UNKNWON_NETWORK_ERROR;
+
+                        if (data && data.networkDetails && data.networkDetails.status === 400) {
+                            errorType = PLAYER_BAD_REQUEST_ERROR;
+                        } else if (data && data.networkDetails && data.networkDetails.status === 403) {
+                            errorType = PLAYER_AUTH_FAILED_ERROR;
+                        } else if (data && data.networkDetails && data.networkDetails.status === 406) {
+                            errorType = PLAYER_NOT_ACCEPTABLE_ERROR;
+                        }
+
+                        let tempError = ERRORS.codes[errorType];
                         tempError.error = data.details;
                         errorTrigger(tempError, that);
                     }
@@ -148,7 +234,10 @@ const HlsProvider = function (element, playerConfig, adTagUrl) {
                         loadRetryer = null;
                     }
 
-                    hls.stopLoad();
+                    if (hls) {
+
+                        hls.stopLoad();
+                    }
                 }
             });
         });
@@ -157,19 +246,51 @@ const HlsProvider = function (element, playerConfig, adTagUrl) {
         superDestroy_func = that.super('destroy');
         OvenPlayerConsole.log("HLS PROVIDER LOADED.");
 
+        superStop_func = that.super('stop');
+
         that.play = () => {
 
             if (!isManifestLoaded) {
                 let source = that.getSources()[that.getCurrentSource()].file;
-                hls.loadSource(source);
+
+                if (hls) {
+                    hls.loadSource(source);
+                }
+
             } else {
                 superPlay_func();
             }
 
         };
 
+        that.stop = () => {
+
+            if (loadRetryer) {
+
+                clearTimeout(loadRetryer);
+                loadRetryer = null;
+            }
+
+            if (hls) {
+                hls.stopLoad();
+            }
+
+            superStop_func();
+        };
+
         that.destroy = () => {
-            hls.destroy();
+
+            if (loadRetryer) {
+
+                clearTimeout(loadRetryer);
+                loadRetryer = null;
+            }
+
+            if (hls) {
+
+                hls.destroy();
+            }
+
             hls = null;
             OvenPlayerConsole.log("HLS : PROVIDER DESTROUYED.");
             superDestroy_func();

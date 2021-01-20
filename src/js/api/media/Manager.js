@@ -19,13 +19,17 @@ const Manager = function(container, browserInfo){
 
     OvenPlayerConsole.log("MediaManager loaded. browser : ", browserInfo );
 
-    const createHtmlVideo = function(isLoop){
+    const createHtmlVideo = function(isLoop, isAutoStart){
+
         videoElement = document.createElement('video');
         videoElement.setAttribute('disableremoteplayback', '');
         videoElement.setAttribute('webkit-playsinline', 'true');
         videoElement.setAttribute('playsinline', 'true');
         if(isLoop){
             videoElement.setAttribute('loop', '');
+        }
+        if(isAutoStart) {
+            videoElement.setAttribute('autoplay', '');
         }
         $container.append(videoElement);
 
@@ -124,16 +128,17 @@ const Manager = function(container, browserInfo){
             }
             return createFlashVideo(playerConfig.isLoop(), playerConfig.getRtmpBufferTime(), playerConfig.getRtmpBufferTimeMax());
         }else{
-            if(videoElement){
-                //that.empty();
-                //reuse video element.
-                //becuase playlist is auto next playing.
-                //Only same video element does not require User Interaction Error.
-                //ToDo : refactoring
-                return videoElement;
-            }else{
-                return createHtmlVideo(playerConfig.isLoop());
-            }
+            // if(videoElement){
+            //     // that.empty();
+            //     //reuse video element.
+            //     //because playlist is auto next playing.
+            //     //Only same video element does not require User Interaction Error.
+            //     return videoElement;
+            // }else{
+            //     return createHtmlVideo(playerConfig.isLoop(), playerConfig.isAutoStart());
+            // }
+            that.empty();
+            return createHtmlVideo(playerConfig.isLoop(), playerConfig.isAutoStart());
         }
     }
 

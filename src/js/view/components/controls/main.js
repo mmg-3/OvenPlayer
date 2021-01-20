@@ -44,12 +44,11 @@ const Controls = function ($container, api) {
 
     hasPlaylist = api.getPlaylist().length > 1;
 
-    if (api.getConfig().hidePlaylistIcon) {
+    if (api.getConfig().hidePlaylistIcon === true) {
         hasPlaylist = false;
     }
 
     let playlistPanel = "";
-
 
     const onRendered = function ($current, template) {
 
@@ -89,18 +88,36 @@ const Controls = function ($container, api) {
 
         function initFullscreenButton() {
             if (fullScreenButton) {
-                fullScreenButton.destroy();
+                // Don't need to destroy.
+                return;
+                // fullScreenButton.destroy();
             }
             fullScreenButton = FullScreenButton($current.find(".fullscreen-holder"), api);
         }
 
         function makeControlUI(metadata) {
 
+            if (metadata.duration > 9000000000000000) {
+
+                metadata.duration = Infinity;
+            }
+
+            let sectionStart = api.getSources()[api.getCurrentSource()].sectionStart;
+            let sectionEnd = api.getSources()[api.getCurrentSource()].sectionEnd;
+
+            if (sectionEnd) {
+                metadata.duration = sectionEnd;
+            }
+
+            if (sectionStart) {
+                 metadata.duration = metadata.duration - sectionStart;
+            }
+
             initTimeDisplay(metadata);
             initFullscreenButton();
 
             if (api.getFramerate && api.getFramerate() > 0) {
-                //initFrameJumpButtons();
+                // initFrameJumpButtons();
             } else {
                 if (frameButtons) {
                     frameButtons.destroy();

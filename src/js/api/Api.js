@@ -5,7 +5,7 @@ import LazyCommandExecutor from "api/LazyCommandExecutor";
 import MediaManager from "api/media/Manager";
 import PlaylistManager from "api/playlist/Manager";
 import ProviderController from "api/provider/Controller";
-import {READY, ERRORS, ERROR, CONTENT_TIME_MODE_CHANGED, INIT_UNKNWON_ERROR, INIT_UNSUPPORT_ERROR, DESTROY, PLAYER_PLAY, NETWORK_UNSTABLED, PLAYER_WEBRTC_NETWORK_SLOW, PLAYER_WEBRTC_UNEXPECTED_DISCONNECT,
+import {READY, ERRORS, ERROR, CONTENT_TIME_MODE_CHANGED, INIT_UNKNWON_ERROR, INIT_UNSUPPORT_ERROR, DESTROY, PLAYER_PLAY, NETWORK_UNSTABLED, PLAYER_WEBRTC_NETWORK_SLOW, PLAYER_WEBRTC_UNEXPECTED_DISCONNECT, PLAYER_WEBRTC_SET_LOCAL_DESC_ERROR,
     PLAYER_FILE_ERROR, PROVIDER_DASH, PROVIDER_HLS, PROVIDER_WEBRTC, PROVIDER_HTML5, PROVIDER_RTMP, ALL_PLAYLIST_ENDED} from "api/constants";
 import {version} from 'version';
 import {ApiRtmpExpansion} from 'api/ApiExpansions';
@@ -36,7 +36,7 @@ const Api = function(container){
     let captionManager = "";
 
     let webrtcRetry = false;
-    const WEBRTC_RETRY_COUNT = 3;
+    let WEBRTC_RETRY_COUNT = 3;
     let webrtcRetryCount = WEBRTC_RETRY_COUNT;
     let webrtcRetryInterval = 1000;
     let webrtcRetryTimer = null;
@@ -123,7 +123,29 @@ const Api = function(container){
             //This passes the event created by the Provider to API.
             currentProvider.on("all", function(name, data){
 
+                if( name === ERROR) {
+
+                    // Chrome >=80 on Android misses h246 in SDP when first time after web page loaded.
+                    // So wait until browser get h264 capabilities and create answer SDP.
+                    if (userAgentObject.os === 'Android' && userAgentObject.browser === 'Chrome') {
+
+                        if (data && data.code && data.code === PLAYER_WEBRTC_SET_LOCAL_DESC_ERROR) {
+
+                            setTimeout(function () {
+
+                                that.setCurrentSource(that.getCurrentSource());
+                            }, webrtcRetryInterval);
+
+                            return;
+                        }
+                    }
+                }
+
                 that.trigger(name, data);
+
+                if(name === "complete"){
+                    runNextPlaylist(playlistManager.getCurrentPlaylistIndex() + 1);
+                }
 
                 if(name === PLAYER_PLAY) {
                     clearInterval(webrtcRetryTimer);
@@ -138,15 +160,12 @@ const Api = function(container){
                     if (data.code === PLAYER_WEBRTC_UNEXPECTED_DISCONNECT
                         || (!playerConfig.getConfig().autoFallback && data.code === PLAYER_WEBRTC_NETWORK_SLOW)) {
 
-                        webrtcRetry = true;
-                        webrtcRetryCount = WEBRTC_RETRY_COUNT;
-                        webrtcRetryTimer = setTimeout(function () {
+                        if (!webrtcRetry) {
 
-                            that.setCurrentSource(playerConfig.getSourceIndex());
-                            webrtcRetryCount --;
-                        }, webrtcRetryInterval);
+                            webrtcRetry = true;
+                            webrtcRetryCount = WEBRTC_RETRY_COUNT;
+                        }
 
-                        return;
                     }
 
                     if (webrtcRetry && webrtcRetryCount > 0) {
@@ -234,6 +253,10 @@ const Api = function(container){
         OvenPlayerConsole.log("API : init()");
         OvenPlayerConsole.log("API : init() config : ", playerConfig);
 
+        if (playerConfig.getConfig().webrtcConfig && playerConfig.getConfig().webrtcConfig.loadingRetryCount !== undefined) {
+            WEBRTC_RETRY_COUNT = playerConfig.getConfig().loadingRetryCount;
+        }
+
         //Not working : SyntaxError: "ERRORS.codes" is read-only
         ERRORS.codes = playerConfig.getSystemText().api.error;
         //Cool
@@ -270,7 +293,11 @@ const Api = function(container){
     };
     that.getFramerate = () => {
         OvenPlayerConsole.log("API : getFramerate()");
-        return currentProvider.getFramerate();
+
+        if (currentProvider) {
+            return currentProvider.getFramerate();
+        }
+
     };
     that.seekFrame = (frameCount) => {
         if(!currentProvider){return null;}
@@ -402,7 +429,7 @@ const Api = function(container){
         OvenPlayerConsole.log("API : setCurrentQuality() isSameProvider", isSameProvider);
 
         //switching between streams on HLS. wth? https://video-dev.github.io/hls.js/latest/docs/API.html#final-step-destroying-switching-between-streams
-        if(!isSameProvider || currentProvider.getName() === PROVIDER_HLS){
+        if(!isSameProvider || currentProvider.getName() === PROVIDER_HLS || currentProvider.getName() === PROVIDER_DASH || currentProvider.getName() === PROVIDER_HTML5){
             lazyQueue = LazyCommandExecutor(that, ['play','seek']);
             initProvider(lastPlayPosition);
         }

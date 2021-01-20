@@ -48,7 +48,7 @@ const Provider = function (spec, playerConfig, onExtendedLoad){
         }
     }
 
-    listener = EventsListener(elVideo, that, ads ? ads.videoEndedCallback : null);
+    listener = EventsListener(elVideo, that, ads ? ads.videoEndedCallback : null, playerConfig);
     elVideo.playbackRate = elVideo.defaultPlaybackRate = playerConfig.getPlaybackRate();
 
     const _load = (lastPlayPosition) =>{
@@ -88,21 +88,24 @@ const Provider = function (spec, playerConfig, onExtendedLoad){
                     elVideo.load();
                 }
 
-            }else if(lastPlayPosition === 0 && elVideo.currentTime > 0){
-                that.seek(lastPlayPosition);
+
+                if(lastPlayPosition && lastPlayPosition > 0){
+                    that.seek(lastPlayPosition);
+                }
+
             }
 
             if(lastPlayPosition > 0){
-                // that.seek(lastPlayPosition);
+                that.seek(lastPlayPosition);
                 if(!playerConfig.isAutoStart()){
-                    that.play();
+                    // that.play();
                 }
 
             }
 
             if(playerConfig.isAutoStart()){
 
-                that.play();
+                // that.play();
             }
             /*that.trigger(CONTENT_SOURCE_CHANGED, {
                 currentSource: spec.currentSource
@@ -289,15 +292,16 @@ const Provider = function (spec, playerConfig, onExtendedLoad){
     };
 
     that.play = () =>{
+
         OvenPlayerConsole.log("Provider : play()");
         if(!elVideo){
             return false;
         }
 
-        //ToDo : Test it thoroughly and remove isPlayingProcessing. Most of the hazards have been removed. a lot of nonblocking play() way -> blocking play()
-        if(isPlayingProcessing){
-            return false;
-        }
+        //Test it thoroughly and remove isPlayingProcessing. Most of the hazards have been removed. a lot of nonblocking play() way -> blocking play()
+        // if(isPlayingProcessing){
+        //     return false;
+        // }
 
         isPlayingProcessing = true;
         if(that.getState() !== STATE_PLAYING){
@@ -396,8 +400,11 @@ const Provider = function (spec, playerConfig, onExtendedLoad){
                 file: source.file,
                 type: source.type,
                 label: source.label,
-                index : index
-            }
+                index : index,
+                sectionStart: source.sectionStart,
+                sectionEnd: source.sectionEnd,
+                gridThumbnail: source.gridThumbnail,
+            };
 
             if (source.lowLatency) {
                 obj.lowLatency = source.lowLatency;

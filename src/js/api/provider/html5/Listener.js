@@ -19,7 +19,7 @@ import {
     CONTENT_META,
     PLAYER_UNKNWON_ERROR,
     PLAYER_UNKNWON_OPERATION_ERROR,
-    PLAYER_UNKNWON_NEWWORK_ERROR,
+    PLAYER_UNKNWON_NETWORK_ERROR,
     PLAYER_UNKNWON_DECODE_ERROR,
     PLAYER_FILE_ERROR,
     PROVIDER_HTML5,
@@ -36,7 +36,7 @@ import {extractVideoElement, errorTrigger} from "api/provider/utils";
  * */
 
 
-const Listener = function(element, provider, videoEndedCallback){
+const Listener = function(element, provider, videoEndedCallback, playerConfig){
     const lowLevelEvents = {};
 
     OvenPlayerConsole.log("EventListener loaded.",element ,provider );
@@ -71,7 +71,7 @@ const Listener = function(element, provider, videoEndedCallback){
         //Fires when the current playlist is ended
         OvenPlayerConsole.log("EventListener : on ended");
 
-        if(provider.getState() !== STATE_IDLE && provider.getState() !== STATE_COMPLETE){
+        if(provider.getState() !== STATE_IDLE && provider.getState() !== STATE_COMPLETE && provider.getState() !== STATE_ERROR) {
             if(videoEndedCallback){
                 videoEndedCallback(function(){
                     provider.setState(STATE_COMPLETE);
@@ -130,6 +130,15 @@ const Listener = function(element, provider, videoEndedCallback){
         provider.setState(STATE_PAUSED);
     };
 
+    lowLevelEvents.loadstart = () => {
+
+        if (playerConfig) {
+            if (!playerConfig.getConfig().showBigPlayButton && playerConfig.getConfig().autoStart) {
+                provider.setState(STATE_LOADING);
+            }
+        }
+    };
+
     lowLevelEvents.play = () => {
 
         //Fires when the audio/video has been started or is no longer paused
@@ -175,6 +184,22 @@ const Listener = function(element, provider, videoEndedCallback){
             return;
         }
 
+        let sectionStart = provider.getSources()[provider.getCurrentSource()].sectionStart;
+
+        if (sectionStart && position < sectionStart && provider.getState() === STATE_PLAYING) {
+
+            provider.seek(sectionStart);
+        }
+
+        let sectionEnd = provider.getSources()[provider.getCurrentSource()].sectionEnd;
+
+        if (sectionEnd && position > sectionEnd && provider.getState() === STATE_PLAYING) {
+
+            provider.stop();
+            provider.setState(STATE_COMPLETE);
+            return;
+        }
+
         //Sometimes dash live gave to me crazy duration. (9007199254740991...) why???
         if(duration > 9000000000000000){    //9007199254740991
             duration = Infinity;
@@ -184,6 +209,23 @@ const Listener = function(element, provider, videoEndedCallback){
             !compareStalledTime(stalled, position) ){
             stalled = -1;
             provider.setState(STATE_PLAYING);
+        }
+
+        if (sectionStart && sectionStart > 0) {
+
+            position = position - sectionStart;
+
+            if (position < 0) {
+                position = 0;
+            }
+        }
+
+        if (sectionEnd) {
+            duration = sectionEnd;
+        }
+
+        if (sectionStart) {
+            duration = duration - sectionStart;
         }
 
         if (provider.getState() === STATE_PLAYING || provider.isSeeking()) {
@@ -240,7 +282,7 @@ const Listener = function(element, provider, videoEndedCallback){
         let convertedErroCode = ({
             0: PLAYER_UNKNWON_ERROR,
             1: PLAYER_UNKNWON_OPERATION_ERROR,
-            2: PLAYER_UNKNWON_NEWWORK_ERROR,
+            2: PLAYER_UNKNWON_NETWORK_ERROR,
             3: PLAYER_UNKNWON_DECODE_ERROR,
             4: PLAYER_FILE_ERROR
         }[code]||0);

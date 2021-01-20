@@ -10,10 +10,15 @@ import {
     CONTENT_BUFFER,
     AD_TIME
 } from "api/constants";
+import {STATE_COMPLETE} from "../../../api/constants";
 //import ResizeSensor from "resize-sensor";
 
 const ProgressBar = function($container, api, isAd){
     const $root = LA$("#"+api.getContainerId());
+
+    if (api.getConfig().disableSeekUI) {
+        $container.addClass('op-progressbar-container-disabled');
+    }
 
     let currentPlayingPosition = 0;
     let currentPlayingPercentage = 0;
@@ -22,6 +27,8 @@ const ProgressBar = function($container, api, isAd){
     let mouseInside = false, mouseDown = false;
     let panelManager = PanelManager();
     let adDuration = 0;
+    let lastGridThumbnail = "";
+    let durationForCalc = 0;
 
     let $progressBar = "",
         $progressLoad = "",
@@ -30,11 +37,13 @@ const ProgressBar = function($container, api, isAd){
         $knobContainer = "",
         $knob = "",
         knobWidth = 0,
-        $time = "";
+        $time = "",
+        $preview = "";
 
     let isMobile = api.getBrowser().os === "iOS" || api.getBrowser().os === "Android";
 
     function positionElements(percentage) {
+
         let progressBarWidth = $progressBar.width();
         let position = progressBarWidth * percentage;
 
@@ -46,26 +55,36 @@ const ProgressBar = function($container, api, isAd){
 
         currentPlayingPosition = position;
         currentPlayingPercentage = percentage;
-    };
+    }
 
     function drawHoverProgress(percentage) {
+
         let progressBarWidth = $progressBar.width();
         let hoverPosition = progressBarWidth * percentage;
         $progressHover.css("width", (percentage === 0 ? percentage : (hoverPosition - currentPlayingPosition))+ "px");
-    };
+
+    }
 
     function drawLoadProgress(percentage) {
+
         let progressBarWidth = $progressBar.width();
         let loadPosition = progressBarWidth * percentage;
 
         $progressLoad.css("width", loadPosition+ "px");
         currentLoadedPercentage = percentage;
-    };
+    }
 
     function calculatePercentage(event) {
+
         let progressBarWidth = $progressBar.width();
         let progressBarOffsetX = $progressBar.offset().left;
-        let pointerOffsetX =  (event.pageX || event.touches[0].clientX) ;
+
+        let pointerOffsetX =  event.pageX;
+
+        if (event.touches) {
+
+            pointerOffsetX =  (event.pageX || event.touches[0].clientX) ;
+        }
 
         let percentage = (pointerOffsetX - progressBarOffsetX) / progressBarWidth;
 
@@ -78,16 +97,20 @@ const ProgressBar = function($container, api, isAd){
         }
 
         return percentage;
-    };
+    }
 
     function drawTimeIndicator(percentage, event) {
-       if(panelManager.size() > 0){
+       if(panelManager.size() > 0 || percentage === -1){
            $time.hide();
+           $preview.hide();
            return ;
+       } else {
+           $time.show();
+           $preview.show();
        }
 
         //const duration = isAd ? adDuration : api.getDuration();
-        let duration = api.getDuration();
+        let duration = durationForCalc;
         let second = duration * percentage;
 
         if(api.isTimecodeMode()){
@@ -101,28 +124,90 @@ const ProgressBar = function($container, api, isAd){
         let timeElemWidth = $time.width();
         let progressBarWidth = $progressBar.width();
         let position = progressBarWidth * percentage;
-        let positionOfPixel =  (event.pageX || event.touches[0].clientX)  - $progressBar.offset().left;
+
+        let positionOfPixel =  event.pageX - $progressBar.offset().left;
+
+        if (event.touches) {
+            positionOfPixel =  (event.pageX || event.touches[0].clientX)  - $progressBar.offset().left;
+        }
 
 
-        const calculateMagnetic = function(){
-            if(positionOfPixel < timeElemWidth / 2){
+
+        const calculateMagnetic = function(elementWidth){
+            if(positionOfPixel < elementWidth / 2){
                 return 0;
-            }else if(progressBarWidth-positionOfPixel  < timeElemWidth / 2){
-                return progressBarWidth - timeElemWidth;
+            }else if(progressBarWidth-positionOfPixel  < elementWidth / 2){
+                return progressBarWidth - elementWidth;
             }else{
-                return position - timeElemWidth / 2;
+                return position - elementWidth / 2;
             }
         };
-        let magneticPosition = calculateMagnetic();
+
+        let magneticPosition = calculateMagnetic(timeElemWidth);
         $time.css("left", magneticPosition+ "px");
-    };
+
+
+        if (api.getSources()[api.getCurrentSource()].gridThumbnail) {
+
+            let interval = api.getConfig().gridThumbnail.thumbnailInterval;
+            let width = api.getConfig().gridThumbnail.originalThumbnailWidth;
+            let height = api.getConfig().gridThumbnail.originalThumbnailHeight;
+            let columnCount = api.getConfig().gridThumbnail.columnCount;
+            let rowCount = api.getConfig().gridThumbnail.rowCount;
+            let scale = api.getConfig().gridThumbnail.resizeScale;
+
+            $preview.css('width', width * scale + 'px');
+            $preview.css('height', height * scale + 'px');
+            $preview.css('background-size', width * scale * columnCount + 'px ' + height * scale * rowCount + 'px');
+
+            let thumbnailNumber = Math.floor(second / interval);
+
+            let imageNumber = Math.floor(thumbnailNumber / (columnCount * rowCount));
+
+            let rowNumber = Math.floor((thumbnailNumber % (columnCount * rowCount)) / columnCount);
+            let columnNumber = (thumbnailNumber % (columnCount * rowCount)) % columnCount;
+
+            let left = -1 * columnNumber * width * scale;
+            let top =  -1 * rowNumber * height * scale;
+
+            // console.log(thumbnailNumber + ': ' + imageNumber +'('+ rowNumber +', ' + columnNumber + ')');
+
+            let thumbnails = api.getSources()[api.getCurrentSource()].gridThumbnail;
+            let thumbnail = thumbnails[imageNumber];
+
+            if (lastGridThumbnail !== thumbnail) {
+
+                $preview.css('background-image', 'url(' + thumbnail +')');
+                lastGridThumbnail = thumbnail;
+            }
+
+            $preview.css('background-position', 'left ' + left + 'px top ' + top + 'px');
+
+            let previewMagneticPosition = calculateMagnetic(width * scale);
+            $preview.css("left", previewMagneticPosition+ "px");
+        } else {
+
+            $preview.hide();
+        }
+    }
 
     function seek(percentage) {
-        api.seek( (api.getDuration()||0) * percentage);
-    };
+
+        let time = (durationForCalc||0) * percentage;
+
+
+        let sectionStart = api.getSources()[api.getCurrentSource()].sectionStart;
+
+        if (sectionStart && sectionStart > 0) {
+            time = time + sectionStart;
+        }
+
+        api.seek(time);
+    }
 
 
     const onRendered = function($current, template){
+
         $progressBar = $current;
         $progressLoad = $current.find(".op-load-progress");
         $progressPlay = $current.find(".op-play-progress");
@@ -131,6 +216,7 @@ const ProgressBar = function($container, api, isAd){
         $knob = $current.find(".op-progressbar-knob");
         knobWidth = $knob.width();
         $time = $current.find(".op-progressbar-time");
+        $preview = $current.find(".op-progressbar-preview");
 
         /*new ResizeSensor($progressBar.get(), function() {
             console.log('Changed  $progressBar' );
@@ -148,6 +234,7 @@ const ProgressBar = function($container, api, isAd){
         }else{
             api.on(CONTENT_TIME, function(data) {
                 if(data && data.duration && data.position){
+                    durationForCalc = data.duration;
                     positionElements(data.position / data.duration);
                 }
             },template);
@@ -170,13 +257,18 @@ const ProgressBar = function($container, api, isAd){
             api.off(CONTENT_BUFFER, null, template);
         }
     };
-    const events = {
+    let events = {
         "touchstart .op-progressbar" : function(event){
             if(isAd){
                 return false;
             }
             mouseDown = true;
             const percentage = calculatePercentage(event);
+
+            if (percentage === -1) {
+                return false;
+            }
+
             positionElements(percentage);
             drawHoverProgress(0);
             seek(percentage);
@@ -184,6 +276,11 @@ const ProgressBar = function($container, api, isAd){
         "touchmove .op-progressbar" : function(event){
             if (mouseDown) {
                 const percentage = calculatePercentage(event);
+
+                 if (percentage === -1) {
+                    return false;
+                }
+
                 positionElements(percentage);
                 drawHoverProgress(0);
                 seek(percentage);
@@ -197,10 +294,10 @@ const ProgressBar = function($container, api, isAd){
             }
 
         },
-
-
         "mouseenter .op-progressbar" : function(event, $current, template){
+
             event.preventDefault();
+
             if(!isMobile){
                 if(!isAd){
                     mouseInside = true;
@@ -210,12 +307,15 @@ const ProgressBar = function($container, api, isAd){
             }
         },
         "mouseleave .op-progressbar" : function(event, $current, template){
+
             event.preventDefault();
 
             mouseInside = false;
+
             if (!mouseInside) {
                 $root.removeClass("op-progressbar-hover");
                 $time.hide();
+                $preview.hide();
             }
             drawHoverProgress(0);
         },
@@ -226,6 +326,11 @@ const ProgressBar = function($container, api, isAd){
             }
             mouseDown = true;
             const percentage = calculatePercentage(event);
+
+            if (percentage === -1) {
+                return false;
+            }
+
             positionElements(percentage);
             drawHoverProgress(0);
             seek(percentage);
@@ -244,6 +349,10 @@ const ProgressBar = function($container, api, isAd){
 
             if (mouseDown) {
                 const percentage = calculatePercentage(event);
+
+                if (percentage === -1) {
+                    return false;
+                }
                 positionElements(percentage);
                 drawHoverProgress(0);
                 seek(percentage);
@@ -260,6 +369,10 @@ const ProgressBar = function($container, api, isAd){
 
         }
     };
+
+    if (api.getConfig().disableSeekUI) {
+        events = {}
+    }
 
     return OvenTemplate($container, "ProgressBar", api.getConfig(), null, events, onRendered, onDestroyed );
 };

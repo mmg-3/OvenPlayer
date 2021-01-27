@@ -1,0 +1,4 @@
+**/*
+!dist/development/**
+!dist/production/**
+!src/**

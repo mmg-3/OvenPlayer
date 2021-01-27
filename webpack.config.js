@@ -6,7 +6,7 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 const GitRevisionPlugin = require('git-revision-webpack-plugin');
 const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 const {BundleAnalyzerPlugin} = require('webpack-bundle-analyzer');
-const banner = packageInfo.name +  ' | ' +
+const banner = packageInfo.name + ' | ' +
     '(c) ' + new Date().getFullYear() + ' ' + packageInfo.author + ' | MIT license (' +
     packageInfo.license + ') | Github : ' +
     packageInfo.homepage;
@@ -16,9 +16,9 @@ const getBuildVersion = function (build) {
     let status = "";
 
 
-    const generate = function(){
+    const generate = function () {
         let date = new Date();
-        const pad = function(n){  // always returns a string
+        const pad = function (n) {  // always returns a string
             return (n < 10 ? '0' : '') + n;
         };
         return date.getFullYear() +
@@ -27,13 +27,13 @@ const getBuildVersion = function (build) {
             pad(date.getHours())
     };
 
-    if(env.npm_lifecycle_event && env.npm_lifecycle_event =="watch"){
+    if (env.npm_lifecycle_event && env.npm_lifecycle_event == "watch") {
         status = "localbuild";
-    }else{
-        status = "rev."+gitRevisionPlugin.version();
+    } else {
+        status = "rev." + gitRevisionPlugin.version();
     }
     return `${build.version}-${generate()}-${status}`;
-}
+};
 
 const defaultConfig = {
     node: {
@@ -41,7 +41,7 @@ const defaultConfig = {
     },
     entry: {
         'ovenplayer': './src/js/ovenplayer.js',
-        'ovenplayer.sdk' : './src/js/ovenplayer.sdk.js',
+        'ovenplayer.sdk': './src/js/ovenplayer.sdk.js',
 
     },
     resolve: {
@@ -64,12 +64,11 @@ const defaultConfig = {
                         "transform-object-assign"
                     ],
                     presets: [
-                        //babel-preset-env is a Babel preset meant to automatically set up babel plugins and include the necessary babel polyfills based on a set of target environments checked against a feature compatibility table.
-                        ['env',{
+                        ['env', {
                             "targets": {"ie": 8},
                             "debug": true,
-                            "useBuiltIns" : true // polyfill
-                        } ]
+                            "useBuiltIns": true // polyfill
+                        }]
                     ]
 
                 }
@@ -110,13 +109,16 @@ const defaultConfig = {
     }
 };
 
-const extendConfig = function (){
-    console.log(env.npm_lifecycle_event );
-    if(env.npm_lifecycle_event ==="watch"){
+const extendConfig = function () {
+    console.log(env.npm_lifecycle_event);
+    if (env.npm_lifecycle_event === "watch") {
         Object.assign(defaultConfig, {
             mode: 'development',
             devtool: 'inline-source-map',
             output: {
+                library: 'OvenPlayer',
+                libraryTarget: 'umd',
+                libraryExport: 'default',
                 filename: '[name].js',
                 path: path.resolve(__dirname, 'dist/development/ovenplayer')
             },
@@ -131,7 +133,7 @@ const extendConfig = function (){
                 })
             ]
         });
-    }else{
+    } else {
         Object.assign(defaultConfig, {
             mode: 'production',
             optimization: {
@@ -167,6 +169,6 @@ const extendConfig = function (){
     }
 
     return defaultConfig;
-}
+};
 
 module.exports = extendConfig();

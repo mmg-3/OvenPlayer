@@ -8,10 +8,12 @@ import {getScriptPath} from 'utils/webpack';
 __webpack_public_path__ = getScriptPath('ovenplayer.js');
 
 if (!__webpack_public_path__) {
-    __webpack_public_path__ = this.OVENPLAYER_LOCATION;
+    __webpack_public_path__ = window.OVENPLAYER_LOCATION;
 }
 
-console.log(__webpack_public_path__)
+if (!__webpack_public_path__) {
+    console.error('Please set window.OVENPLAYER_LOCATION where path of OvenPlayer in your environment.')
+}
 
 function ovenPlayerFactory() {
 

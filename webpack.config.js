@@ -2,7 +2,6 @@ const webpack = require('webpack');
 const path = require('path');
 const env = process.env;
 const packageInfo = require('./package.json');
-const CopyWebpackPlugin = require('copy-webpack-plugin');
 const GitRevisionPlugin = require('git-revision-webpack-plugin');
 const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 const {BundleAnalyzerPlugin} = require('webpack-bundle-analyzer');
@@ -148,10 +147,14 @@ const extendConfig = function () {
             },
             devtool: false,
             output: {
+                library: 'OvenPlayer',
+                libraryTarget: 'umd',
+                libraryExport: 'default',
+                globalObject: 'this',
                 filename: `[name].js`,
                 hashDigestLength: 7,
                 chunkFilename: `ovenplayer-[chunkhash].js`,
-                path: path.resolve(__dirname, 'dist/production/ovenplayer')
+                path: path.resolve(__dirname, 'dist/')
             },
             plugins: [
                 new webpack.DefinePlugin({

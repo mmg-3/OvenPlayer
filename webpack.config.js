@@ -40,9 +40,7 @@ const defaultConfig = {
         fs: 'empty'
     },
     entry: {
-        'ovenplayer': './src/js/ovenplayer.js',
-        'ovenplayer.sdk': './src/js/ovenplayer.sdk.js',
-
+        'ovenplayer': './src/js/ovenplayer.js'
     },
     resolve: {
         modules: [
@@ -65,7 +63,7 @@ const defaultConfig = {
                     ],
                     presets: [
                         ['env', {
-                            "targets": {"ie": 8},
+                            "targets": {"ie": 11},
                             "debug": true,
                             "useBuiltIns": true // polyfill
                         }]
@@ -110,8 +108,8 @@ const defaultConfig = {
 };
 
 const extendConfig = function () {
-    console.log(env.npm_lifecycle_event);
-    if (env.npm_lifecycle_event === "watch") {
+
+    if (env.npm_lifecycle_event === 'watch') {
         Object.assign(defaultConfig, {
             mode: 'development',
             devtool: 'inline-source-map',
@@ -119,11 +117,11 @@ const extendConfig = function () {
                 library: 'OvenPlayer',
                 libraryTarget: 'umd',
                 libraryExport: 'default',
+                globalObject: 'this',
                 filename: '[name].js',
                 path: path.resolve(__dirname, 'dist/development/ovenplayer')
             },
             plugins: [
-                new GitRevisionPlugin(),
                 new webpack.DefinePlugin({
                     __VERSION__: `'${getBuildVersion(packageInfo)}'`
                 }),
@@ -156,7 +154,6 @@ const extendConfig = function () {
                 path: path.resolve(__dirname, 'dist/production/ovenplayer')
             },
             plugins: [
-                new GitRevisionPlugin(),
                 new webpack.DefinePlugin({
                     __VERSION__: `'${getBuildVersion(packageInfo)}'`
                 }),

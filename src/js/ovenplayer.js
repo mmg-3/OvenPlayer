@@ -8,7 +8,7 @@ import {getScriptPath} from 'utils/webpack';
 __webpack_public_path__ = getScriptPath('ovenplayer.js');
 
 if (!__webpack_public_path__) {
-    __webpack_public_path__ = window._ovenplayer_chunk_url_;
+    __webpack_public_path__ = this.OVENPLAYER_LOCATION;
 }
 
 console.log(__webpack_public_path__)

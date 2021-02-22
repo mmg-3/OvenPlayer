@@ -30,7 +30,6 @@
     </style>
 
     <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-40491361-8"></script>
 
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -47,14 +46,13 @@
     <script src="lib/vue.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <!--<script src="lib/dash.all.debug.js"></script>-->
-    <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/dashjs/3.2.0/dash.all.min.js" integrity="sha512-wFaKU7BcXbvVVGi0vDUKv4GXc9Hrp4RjGZorG8KlpRurhpvgCXiLhcafCj3y/gKY5CKAuyu00b+BvJ+vyRD0Pg==" crossorigin="anonymous"></script>-->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dashjs/3.1.3/dash.all.min.js" integrity="sha512-KbtNOWr7e/rlM9utrUc5cO9PeJZO3jFfCjWPe1mHe2sPvIike3IZIH6h4ja6wH7aXNKrecP8zh6/SYDc3t6Jog==" crossorigin="anonymous"></script>
     <script src="lib/clipboard.min.js"></script>
     <script src="lib/jquery-1.12.4.min.js"></script>
     <script src="lib/popper.min.js"></script>
     <script src="lib/bootstrap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-toast-plugin/1.3.2/jquery.toast.js"></script>
-    <script src="../dist/development/ovenplayer/ovenplayer.js"></script>
+    <script src="../dist/development/ovenplayer/ovenplayer.js?20210217"></script>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
@@ -116,6 +114,46 @@
                     </div>
                     <div class="row mb-2">
                         <div class="col-12">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">TURN URL</span>
+                                </div>
+                                <input id="turnUrl" type="text" class="form-control" placeholder="EX) turn:108.177.125.127:19305?transport=tcp">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-12">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">TURN USER</span>
+                                </div>
+                                <input id="turnUser" type="text" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-12">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">TURN PASSWORD</span>
+                                </div>
+                                <input id="turnPassword" type="text" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-12">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">playoutDelayHint</span>
+                                </div>
+                                <input id="playoutDelayHint" type="text" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-12">
                             <div class="form-check mt-3 mb-3">
                                 <input type="checkbox" class="form-check-input" id="lowlatencyCheck">
                                 <label class="form-check-label" for="lowlatencyCheck">Enable Low Latency MPEG DASH</label>
@@ -133,7 +171,8 @@
                     </div>
                     <div class="card mb-2" v-for="(source, index) in sources">
                         <div class="card-body">
-                            <strong>{{ source.type }}</strong> <span>{{ source.file }}</span>
+                            <strong>{{ source.type }}</strong>
+                            <span>{{ source.file }}</span>
                             <button type="button" class="close" aria-label="Close" v-on:click="removeSource(index)">
                                 <span aria-hidden="true">&times;</span>
                             </button>
@@ -180,15 +219,41 @@ player = OvenPlayer.create("player", {
 
     var errorRetryer = null;
 
-    var getExportUrl = function (sources, lowLatency, liveDelay) {
+    var getExportUrl = function (sources, lowLatency, liveDelay, turnUrl, turnUser, turnPassword, playoutDelayHint) {
 
         var exportUrl = window.location.protocol + "//" + location.host + location.pathname + "#sources=" + encodeURIComponent(JSON.stringify(sources)) +
-            '&lowLatency=' + lowLatency + '&liveDelay=' + liveDelay;
+            '&turnUrl=' + encodeURIComponent(turnUrl) + '&turnUser=' + encodeURIComponent(turnUser) + '&turnPassword=' + encodeURIComponent(turnPassword) +
+            '&playoutDelayHint=' + playoutDelayHint + '&lowLatency=' + lowLatency + '&liveDelay=' + liveDelay;
 
         exportUrl = exportUrl.replace('%2C%22lowLatency%22%3Atrue', '');
         location.href = exportUrl;
         return exportUrl;
     };
+
+    function extractExportUrl() {
+
+        if (navigation.sources) {
+
+            var lowLatencyCheck = false;
+
+            if ($('#lowlatencyCheck').prop('checked')) {
+                lowLatencyCheck = true;
+            }
+
+            var liveDelayValue = false;
+
+            if ($.trim($('#liveDelayInput').val()) !== '') {
+                liveDelayValue = $.trim($('#liveDelayInput').val());
+            }
+
+            var turnUrl = $.trim($('#turnUrl').val());
+            var turnUser = $.trim($('#turnUser').val());
+            var turnPassword = $.trim($('#turnPassword').val());
+            var playoutDelayHint = $.trim($('#playoutDelayHint').val());
+
+            return getExportUrl(navigation.sources, lowLatencyCheck, liveDelayValue, turnUrl, turnUser, turnPassword, playoutDelayHint);
+        }
+    }
 
     var player = "",
         preSources = "",
@@ -209,7 +274,7 @@ player = OvenPlayer.create("player", {
 
         if (!results) {
 
-            return 'false';
+            return '';
         }
 
         if (!results[2]) {
@@ -283,12 +348,16 @@ player = OvenPlayer.create("player", {
         var lowLatency = getParameterByName("lowLatency");
         var liveDelay = getParameterByName("liveDelay");
 
+        $('#turnUrl').val(getParameterByName("turnUrl"));
+        $('#turnUser').val(getParameterByName("turnUser"));
+        $('#turnPassword').val(getParameterByName("turnPassword"));
+
+        $('#playoutDelayHint').val(getParameterByName("playoutDelayHint"));
+
         var playerOption = {
             autoStart: true,
             sources: preSources || defaultSources
         };
-
-        console.log(playerOption)
 
         if (lowLatency && lowLatency !== 'false') {
             $('#lowlatencyCheck').prop('checked', true);
@@ -303,6 +372,42 @@ player = OvenPlayer.create("player", {
             $('#liveDelayInput').val(liveDelay);
             playerOption.lowLatencyMpdLiveDelay = liveDelay;
         }
+
+        var turnUrl = $.trim($('#turnUrl').val());
+        var turnUser = $.trim($('#turnUser').val());
+        var turnPassword = $.trim($('#turnPassword').val());
+        var playoutDelayHint = $.trim($('#playoutDelayHint').val());
+
+        if (turnUrl) {
+
+            playerOption.webrtcConfig = {};
+            playerOption.webrtcConfig.iceServers = [];
+
+            var turnServer = {};
+
+            turnServer.urls = [];
+            turnServer.urls.push(turnUrl);
+
+            if (turnUser) {
+                turnServer.username = turnUser;
+                turnServer.credential = turnPassword;
+            }
+
+            playerOption.webrtcConfig.iceServers.push(turnServer);
+
+            playerOption.webrtcConfig.iceTransportPolicy = 'relay';
+        }
+
+        if (playoutDelayHint) {
+
+            if (!playerOption.webrtcConfig) {
+                playerOption.webrtcConfig = {};
+            }
+
+            playerOption.webrtcConfig.playoutDelayHint = parseInt(playoutDelayHint);
+        }
+
+        console.log(playerOption);
 
         player = OvenPlayer.create("player", playerOption);
 
@@ -334,28 +439,13 @@ player = OvenPlayer.create("player", {
             errorRetryer = setTimeout(function () {
                 playerLoaded = false;
                 navigation.loadSources();
-            }, 2000);
+            }, 3000);
 
         });
 
         $('#lowlatencyCheck, #liveDelayInput').on('change', function () {
 
-            if (navigation.sources) {
-
-                var lowLatencyCheck = false;
-
-                if ($('#lowlatencyCheck').prop('checked')) {
-                    lowLatencyCheck = true;
-                }
-
-                var liveDelayValue = false;
-
-                if ($.trim($('#liveDelayInput').val()) !== '') {
-                    liveDelayValue = $.trim($('#liveDelayInput').val());
-                }
-
-                navigation.exportUrl = getExportUrl(navigation.sources, lowLatencyCheck, liveDelayValue);
-            }
+            navigation.exportUrl = extractExportUrl();
         });
 
         $('#lowlatencyCheck').on('change', function () {
@@ -373,9 +463,7 @@ player = OvenPlayer.create("player", {
                 navigation.loadSources();
             } else {
 
-                if (player.getProviderName() === 'dash') {
-
-                    var op_dash = player.getMseInstance();
+                if (op_dash) {
 
                     var prevLiveDelay = op_dash.getSettings().streaming.liveDelay;
 
@@ -418,7 +506,7 @@ player = OvenPlayer.create("player", {
             sourceId: 0,
             errorMessage: "",
             loadButtonText: "Load Player",
-            exportUrl: preSources ? getExportUrl(preSources, getParameterByName("lowLatency"), getParameterByName("liveDelay")) : ""
+            exportUrl: preSources ? getExportUrl(preSources, getParameterByName("lowLatency"), getParameterByName("liveDelay"), getParameterByName("turnUrl"), getParameterByName("turnUser"), getParameterByName("turnPassword"), getParameterByName("playoutDelayHint")) : ""
         },
         methods: {
             setProtocol: function (protocol) {
@@ -520,30 +608,17 @@ player = OvenPlayer.create("player", {
                         liveDelay = $.trim($('#liveDelayInput').val());
                     }
 
-                    this.exportUrl = getExportUrl(this.sources, lowLatency, liveDelay);
+                    var turnUrl = $.trim($('#turnUrl').val());
+                    var turnUser = $.trim($('#turnUser').val());
+                    var turnPassword = $.trim($('#turnPassword').val());
+
+                    this.exportUrl = extractExportUrl();
                 }
             },
             removeSource: function (index) {
                 this.sources.splice(index, 1);
 
-                if (this.sources) {
-                    var lowLatency = false;
-
-                    if ($('#lowlatencyCheck').prop('checked')) {
-                        lowLatency = true;
-                    }
-
-                    var liveDelay = false;
-
-                    if ($.trim($('#liveDelayInput').val()) !== '') {
-                        liveDelay = $.trim($('#liveDelayInput').val());
-                    }
-
-                    this.loadButtonText = "Load Player";
-                    playerLoaded = false;
-
-                    this.exportUrl = getExportUrl(this.sources, lowLatency, liveDelay);
-                }
+                this.exportUrl = extractExportUrl();
             },
             loadSources: function () {
 
@@ -554,7 +629,7 @@ player = OvenPlayer.create("player", {
                     if (this.sources && this.sources.length > 0) {
 
                         var playerOption = {
-                            autoStart: false,
+                            autoStart: true,
                             sources: JSON.parse(JSON.stringify(this.sources))
                         };
 
@@ -569,13 +644,56 @@ player = OvenPlayer.create("player", {
                             playerOption.lowLatencyMpdLiveDelay = parseInt($.trim($('#liveDelayInput').val()))
                         }
 
-                        var playerState = player.getState();
+                        if (player) {
 
-                        if (playerState === 'playing' || playerState === 'stalled' || playerState === 'loading' || playerState === 'error') {
-                            playerOption.autoStart = true;
+                            var playerState = player.getState();
+
+                            if (playerState === 'playing' || playerState === 'stalled' || playerState === 'loading' || playerState === 'error') {
+                                playerOption.autoStart = true;
+                            }
                         }
 
-                        player.remove();
+
+                        var turnUrl = $.trim($('#turnUrl').val());
+                        var turnUser = $.trim($('#turnUser').val());
+                        var turnPassword = $.trim($('#turnPassword').val());
+                        var playoutDelayHint = $.trim($('#playoutDelayHint').val());
+
+                        if (turnUrl) {
+
+                            playerOption.webrtcConfig = {};
+                            playerOption.webrtcConfig.iceServers = [];
+
+                            var turnServer = {};
+
+                            turnServer.urls = [];
+                            turnServer.urls.push(turnUrl);
+
+                            if (turnUser) {
+                                turnServer.username = turnUser;
+                                turnServer.credential = turnPassword;
+                            }
+
+                            playerOption.webrtcConfig.iceServers.push(turnServer);
+
+                            playerOption.webrtcConfig.iceTransportPolicy = 'relay';
+                        }
+
+                        if (playoutDelayHint) {
+
+                            if (!playerOption.webrtcConfig) {
+                                playerOption.webrtcConfig = {};
+                            }
+
+                            playerOption.webrtcConfig.playoutDelayHint = parseInt(playoutDelayHint);
+                        }
+
+                        console.log(playerOption);
+
+                        if (player) {
+                            player.remove();
+                            player = null;
+                        }
 
                         player = OvenPlayer.create("player", playerOption);
 
@@ -596,7 +714,6 @@ player = OvenPlayer.create("player", {
 
                             errorOccured = true;
                             console.log(error);
-                            // navigation.errorMessage = error.message;
 
                             if (errorRetryer) {
                                 clearTimeout(errorRetryer);
@@ -606,11 +723,12 @@ player = OvenPlayer.create("player", {
                             errorRetryer = setTimeout(function () {
                                 playerLoaded = false;
                                 navigation.loadSources();
-                            }, 2000);
+                            }, 3000);
 
                         });
 
                         this.errorMessage = "";
+                        this.exportUrl = extractExportUrl();
                     } else {
                         this.errorMessage = "Please add a playback info.";
                     }
@@ -621,7 +739,11 @@ player = OvenPlayer.create("player", {
                         errorRetryer = null;
                     }
 
-                    player.remove();
+                    if (player) {
+                        player.remove();
+                        player = null;
+                    }
+
                     playerLoaded = false;
 
                     $('.player_area').append('<div class="dummy_player"></div>');
@@ -644,6 +766,8 @@ player = OvenPlayer.create("player", {
             }
         }
     });
+
+
 </script>
 </body>
 
